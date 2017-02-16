@@ -307,6 +307,25 @@ describe('Receiver', function () {
     });
   });
 
+  it('can parse a buffer with thousands of frames', function (done) {
+    const buf = Buffer.allocUnsafe(40000);
+
+    for (let i = 0; i < buf.length; i += 2) {
+      buf[i] = 0x81;
+      buf[i + 1] = 0x00;
+    }
+
+    const p = new Receiver();
+    let counter = 0;
+
+    p.onmessage = function (data) {
+      assert.strictEqual(data, '');
+      if (++counter === 20000) done();
+    };
+
+    p.add(buf);
+  });
+
   it('resets `totalPayloadLength` only on final frame (unfragmented)', function () {
     const p = new Receiver({}, 10);
     let message;
@@ -358,7 +377,7 @@ describe('Receiver', function () {
   it('raises an error when RSV1 is on and permessage-deflate is disabled', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'RSV1 must be clear');
       assert.strictEqual(code, 1002);
@@ -374,7 +393,7 @@ describe('Receiver', function () {
 
     const p = new Receiver({ 'permessage-deflate': perMessageDeflate });
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'RSV1 must be clear');
       assert.strictEqual(code, 1002);
@@ -387,7 +406,7 @@ describe('Receiver', function () {
   it('raises an error when RSV2 is on', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'RSV2 and RSV3 must be clear');
       assert.strictEqual(code, 1002);
@@ -400,7 +419,7 @@ describe('Receiver', function () {
   it('raises an error when RSV3 is on', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'RSV2 and RSV3 must be clear');
       assert.strictEqual(code, 1002);
@@ -413,7 +432,7 @@ describe('Receiver', function () {
   it('raises an error if the first frame in a fragmented message has opcode 0', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'invalid opcode: 0');
       assert.strictEqual(code, 1002);
@@ -426,7 +445,7 @@ describe('Receiver', function () {
   it('raises an error if a frame has opcode 1 in the middle of a fragmented message', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'invalid opcode: 1');
       assert.strictEqual(code, 1002);
@@ -440,7 +459,7 @@ describe('Receiver', function () {
   it('raises an error if a frame has opcode 2 in the middle of a fragmented message', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'invalid opcode: 2');
       assert.strictEqual(code, 1002);
@@ -454,7 +473,7 @@ describe('Receiver', function () {
   it('raises an error when a control frame has the FIN bit off', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'FIN must be set');
       assert.strictEqual(code, 1002);
@@ -470,7 +489,7 @@ describe('Receiver', function () {
 
     const p = new Receiver({ 'permessage-deflate': perMessageDeflate });
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'RSV1 must be clear');
       assert.strictEqual(code, 1002);
@@ -483,7 +502,7 @@ describe('Receiver', function () {
   it('raises an error when a control frame has the FIN bit off', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'FIN must be set');
       assert.strictEqual(code, 1002);
@@ -496,7 +515,7 @@ describe('Receiver', function () {
   it('raises an error when a control frame has a payload bigger than 125 B', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'invalid payload length');
       assert.strictEqual(code, 1002);
@@ -509,7 +528,7 @@ describe('Receiver', function () {
   it('raises an error when a data frame has a payload bigger than 2^53 - 1 B', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'max payload size exceeded');
       assert.strictEqual(code, 1009);
@@ -526,7 +545,7 @@ describe('Receiver', function () {
   it('raises an error if a text frame contains invalid UTF-8 data', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'invalid utf8 sequence');
       assert.strictEqual(code, 1007);
@@ -539,7 +558,7 @@ describe('Receiver', function () {
   it('raises an error if a close frame has a payload of 1 B', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'invalid payload length');
       assert.strictEqual(code, 1002);
@@ -552,7 +571,7 @@ describe('Receiver', function () {
   it('raises an error if a close frame contains an invalid close code', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'invalid status code: 0');
       assert.strictEqual(code, 1002);
@@ -565,7 +584,7 @@ describe('Receiver', function () {
   it('raises an error if a close frame contains invalid UTF-8 data', function (done) {
     const p = new Receiver();
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'invalid utf8 sequence');
       assert.strictEqual(code, 1007);
@@ -583,7 +602,7 @@ describe('Receiver', function () {
     const frame = '82' + util.getHybiLengthAsHexString(msg.length, true) + mask +
       util.mask(msg, mask).toString('hex');
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'max payload size exceeded');
       assert.strictEqual(code, 1009);
@@ -600,7 +619,7 @@ describe('Receiver', function () {
     const frame = '82' + util.getHybiLengthAsHexString(msg.length, false) +
       msg.toString('hex');
 
-    p.error = function (err, code) {
+    p.onerror = function (err, code) {
       assert.ok(err instanceof Error);
       assert.strictEqual(err.message, 'max payload size exceeded');
       assert.strictEqual(code, 1009);
@@ -699,7 +718,7 @@ describe('Receiver', function () {
       p.add(frame);
       p.add(frame);
 
-      assert.strictEqual(p.state, 5);
+      assert.strictEqual(p.state, 7);
       assert.strictEqual(p.bufferedBytes, frame.length);
 
       p.cleanup(() => {
@@ -731,7 +750,7 @@ describe('Receiver', function () {
       p.add(textFrame);
       p.add(closeFrame);
 
-      assert.strictEqual(p.state, 5);
+      assert.strictEqual(p.state, 7);
       assert.strictEqual(p.bufferedBytes, textFrame.length + closeFrame.length);
 
       p.cleanup(() => {
@@ -763,7 +782,7 @@ describe('Receiver', function () {
       p.add(textFrame);
       p.add(invalidFrame);
 
-      assert.strictEqual(p.state, 5);
+      assert.strictEqual(p.state, 7);
       assert.strictEqual(p.bufferedBytes, textFrame.length + invalidFrame.length);
 
       p.cleanup(() => {
@@ -798,7 +817,7 @@ describe('Receiver', function () {
       p.add(textFrame);
       p.add(incompleteFrame);
 
-      assert.strictEqual(p.state, 5);
+      assert.strictEqual(p.state, 7);
       assert.strictEqual(p.bufferedBytes, incompleteFrame.length);
 
       p.cleanup(() => {
